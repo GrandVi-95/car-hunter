@@ -2,10 +2,8 @@ import requests
 import json
 import time
 import os
-import hashlib
 from datetime import datetime
 
-# ─── הגדרות ───────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", 3600))
@@ -18,11 +16,11 @@ MAX_KM = 100000
 SEARCHES = [
     {
         "display": "סקודה קאמיק",
-        "url": "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars?manufacturer=54&model=1388&yearFrom=2020&priceTo=85000&kmTo=100000&page=1&rows=40"
+        "url": "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars?manufacturer=40&model=10544&yearFrom=2020&priceTo=85000&kmTo=100000&page=1&rows=40"
     },
     {
         "display": "סקודה קארוק",
-        "url": "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars?manufacturer=54&model=1389&yearFrom=2020&priceTo=85000&kmTo=100000&page=1&rows=40"
+        "url": "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars?manufacturer=40&model=10545&yearFrom=2020&priceTo=85000&kmTo=100000&page=1&rows=40"
     },
 ]
 
@@ -65,11 +63,12 @@ def fetch_yad2(search):
     results = []
     session = requests.Session()
     try:
-        session.get("https://www.yad2.co.il/vehicles/cars", headers=HEADERS, timeout=15)
+        session.get("https://www.yad2.co.il/vehicles/cars", headers={**HEADERS, "Accept": "text/html"}, timeout=15)
         time.sleep(2)
         resp = session.get(search["url"], headers=HEADERS, timeout=15)
         print(f"  Status: {resp.status_code}, Size: {len(resp.text)} bytes")
         if resp.status_code != 200:
+            print(f"  תוכן: {resp.text[:100]}")
             return results
         data = resp.json()
         items = data.get("data", {}).get("feed", {}).get("feed_items", [])
@@ -86,6 +85,7 @@ def fetch_yad2(search):
                 price = item.get("price", 0)
                 city = item.get("city", "לא צוין")
                 hand = item.get("hand", "")
+                # פילטור
                 if price and int(price) > MAX_PRICE:
                     continue
                 if km and int(km) > MAX_KM:
@@ -95,6 +95,7 @@ def fetch_yad2(search):
                 km_fmt = f"{int(km):,} ק\"מ" if km else "לא צוין"
                 price_fmt = f"₪{int(price):,}" if price else "לא צוין"
                 hand_fmt = f"יד {hand}" if hand else ""
+                # תמונה
                 photo = None
                 images = item.get("images", {})
                 if isinstance(images, dict) and images:
@@ -156,7 +157,7 @@ def main():
         for search in SEARCHES:
             print(f"  סורק: {search['display']}")
             cars = fetch_yad2(search)
-            print(f"  תוצאות: {len(cars)}")
+            print(f"  תוצאות רלוונטיות: {len(cars)}")
             for car in cars:
                 if car["id"] not in seen:
                     seen.add(car["id"])
